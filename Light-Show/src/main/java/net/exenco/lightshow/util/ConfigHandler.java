@@ -149,7 +149,7 @@ public class ConfigHandler {
         // nbtTagCompound.putString("tag", "{}");
         // return CraftItemStack.asBukkitCopy(ItemStack.of(nbtTagCompound)).getType();
 
-        Material mat = Material.matchMaterial(name.toUpperCase());
+        Material mat = Material.matchMaterial(name.toLowerCase());
         if (mat == null) {
             throw new IllegalArgumentException("Invalid material name: " + name);
         }

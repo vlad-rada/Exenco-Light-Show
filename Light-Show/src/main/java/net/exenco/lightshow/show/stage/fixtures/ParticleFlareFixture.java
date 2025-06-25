@@ -44,8 +44,11 @@ public class ParticleFlareFixture extends ShowFixture {
 
         Particle particle = ParticleRegistry.getById(particleId);
         if (particle == null) {
-            System.out.println("[ParticleFlareFixture] Invalid particle ID: " + particleId);
-        return;
+            //Setting default particle instead of silently failing
+            particle = ParticleRegistry.getById(0);
+
+            //removed:
+            //return
             }
         Object particleData = null;
         if(particle.getDataType() == Particle.DustOptions.class)
@@ -55,15 +58,19 @@ public class ParticleFlareFixture extends ShowFixture {
         double offsetY = maxYOffset * offset;
         double offsetZ = maxZOffset * offset;
 
-        System.out.println("[ParticleFlareFixture] Applying state:");
-        System.out.println("  Location: " + location);
-        System.out.println("  Particle: " + particle + " (" + particle.getDataType() + ")");
-        System.out.println("  Count: " + count);
-        System.out.println("  Offset: " + offset + " (X=" + offsetX + ", Y=" + offsetY + ", Z=" + offsetZ + ")");
-        System.out.println("  Time: " + time);
-        System.out.println("  RGB: " + red + ", " + green + ", " + blue);
-        System.out.println("  Size: " + size);
-        System.out.println("  Is tick: " + isTick());
+        //debug
+//        System.out.println(
+//                "[ParticleFlareFixture] Applying state:\n" +
+//                        "  Location: " + location + "\n" +
+//                        "  Particle: " + particle + " (" + particle.getDataType() + ")\n" +
+//                        "  Count: " + count + "\n" +
+//                        "  Offset: " + offset + " (X=" + offsetX + ", Y=" + offsetY + ", Z=" + offsetZ + ")\n" +
+//                        "  Time: " + time + "\n" +
+//                        "  RGB: " + red + ", " + green + ", " + blue + "\n" +
+//                        "  Size: " + size + "\n" +
+//                        "  Is tick: " + isTick()
+//        );
+
 
         if(isTick() && count > 0) {
             packetHandler.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, time, particleData);
