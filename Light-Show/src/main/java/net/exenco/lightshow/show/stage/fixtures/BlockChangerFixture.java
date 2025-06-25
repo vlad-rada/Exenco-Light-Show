@@ -9,7 +9,7 @@ import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Lightable;
-import org.bukkit.craftbukkit.v1_20_R1.CraftWorld;
+import org.bukkit.craftbukkit.CraftWorld; //updated
 
 public class BlockChangerFixture extends ShowFixture {
     private final boolean lit;

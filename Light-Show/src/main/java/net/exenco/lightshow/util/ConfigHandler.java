@@ -1,13 +1,24 @@
 package net.exenco.lightshow.util;
 
 import com.google.gson.*;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.serialization.DataResult;
 import net.exenco.lightshow.LightShow;
+import net.minecraft.core.Holder;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+
+//new
+import net.minecraft.world.item.Item;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.core.component.DataComponentPatch;
+
+
+import net.minecraft.world.item.Items;
 import org.bukkit.*;
-import org.bukkit.craftbukkit.v1_20_R1.inventory.CraftItemStack;
 import org.bukkit.util.Vector;
 
 import java.io.File;
@@ -15,6 +26,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.Optional;
+
 
 public class ConfigHandler {
     private final File config = new File("plugins//Light-Show//config.json");
@@ -95,28 +108,51 @@ public class ConfigHandler {
         return Color.fromRGB(red, green, blue);
     }
 
+
+    
+    //updated june 22 2025 for 1.21.6
     public static ItemStack getItemStackFromJsonObject(JsonObject jsonObject) {
-        String item = jsonObject.get("Item").getAsString();
+        String itemId = jsonObject.get("Item").getAsString();
         int count = jsonObject.has("Count") ? jsonObject.get("Count").getAsInt() : 1;
         String nbt = jsonObject.has("Nbt") ? jsonObject.get("Nbt").getAsString() : "{}";
-        try {
-            CompoundTag itemNbt = TagParser.parseTag(nbt);
 
-            CompoundTag nbtTag = new CompoundTag();
-            nbtTag.putString("id", item.toLowerCase());
-            nbtTag.putInt("Count", count);
-            nbtTag.put("tag", itemNbt);
-            return ItemStack.of(nbtTag);
+        try {
+            ResourceLocation itemKey = ResourceLocation.parse(itemId.toLowerCase());
+            Optional<Item> opt = BuiltInRegistries.ITEM.getOptional(itemKey);
+            if (opt.isEmpty() || opt.get() == Items.AIR) {
+                throw new IllegalArgumentException("Unknown or AIR item: " + itemId);
+            }
+            ItemStack stack = new ItemStack(opt.get(), count);
+
+            CompoundTag itemNbt = TagParser.parseCompoundFully(nbt);
+            if (!itemNbt.isEmpty()) {
+                DataResult<DataComponentPatch> result = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, itemNbt);
+                DataComponentPatch patch = result.result().orElseThrow(() ->
+                        new RuntimeException("Failed to parse patch: " + result.error().map(DataResult.Error::message).orElse("Unknown")));
+                stack.applyComponents(patch);
+            }
+            return stack;
         } catch (CommandSyntaxException e) {
-            throw new RuntimeException("Cannot parse item " + count + "x " + item + nbt);
+            throw new RuntimeException("Cannot parse item " + count + "x " + itemId + " with NBT: " + nbt, e);
         }
     }
 
+
+
+
+    //updated
     public static Material getMaterialFromName(String name) {
-        CompoundTag nbtTagCompound = new CompoundTag();
-        nbtTagCompound.putString("id", name.toLowerCase());
-        nbtTagCompound.putInt("Count", 1);
-        nbtTagCompound.putString("tag", "{}");
-        return CraftItemStack.asBukkitCopy(ItemStack.of(nbtTagCompound)).getType();
+        // old:
+        // CompoundTag nbtTagCompound = new CompoundTag();
+        // nbtTagCompound.putString("id", name.toLowerCase());
+        // nbtTagCompound.putInt("Count", 1);
+        // nbtTagCompound.putString("tag", "{}");
+        // return CraftItemStack.asBukkitCopy(ItemStack.of(nbtTagCompound)).getType();
+
+        Material mat = Material.matchMaterial(name.toUpperCase());
+        if (mat == null) {
+            throw new IllegalArgumentException("Invalid material name: " + name);
+        }
+        return mat;
     }
 }

@@ -17,11 +17,20 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.SoundCategory;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.craftbukkit.v1_20_R1.CraftWorld;
-import org.bukkit.craftbukkit.v1_20_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.CraftWorld; //update
+import org.bukkit.craftbukkit.entity.CraftPlayer; //update
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
+
+
+
+//new
+import net.minecraft.world.entity.PositionMoveRotation;
+import net.minecraft.world.entity.Relative;
+import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+
+
 
 import java.util.*;
 
@@ -137,7 +146,8 @@ public class PacketHandler {
      */
     private List<Packet<? extends PacketListener>> getEntitySpawnPackets(Entity entity) {
         List<Packet<? extends PacketListener>> packetList = new ArrayList<>();
-        packetList.add(new ClientboundAddEntityPacket(entity));
+        //old: packetList.add(new ClientboundAddEntityPacket(entity));
+        level.addFreshEntity(entity);
 
         // If entity has metadata, send packet
         ClientboundSetEntityDataPacket metadataPacket = getEntityMetadataPacket(entity);
@@ -181,13 +191,29 @@ public class PacketHandler {
     }
 
     /**
+     *  updated june 22 2025
+     *  uses new parameters
+     *
      * Creates {@link ClientboundTeleportEntityPacket} object for given {@link Entity}.
      * @param entity to get coordinates from
      * @return the created {@link ClientboundTeleportEntityPacket} object.
      */
     private ClientboundTeleportEntityPacket getEntityMovePacket(Entity entity) {
-        return new ClientboundTeleportEntityPacket(entity);
-    }
+
+        PositionMoveRotation pos = new PositionMoveRotation(
+                entity.position(),              // Vec3 position
+                entity.getDeltaMovement(),     // Vec3 delta movement
+                entity.getYRot(),              // float yaw
+                entity.getXRot()               // float pitch
+        );
+
+        return new ClientboundTeleportEntityPacket(
+                entity.getId(),
+                pos,
+                EnumSet.noneOf(Relative.class),
+                entity.onGround()
+        );
+}
 
     /**
      * Creates {@link ClientboundRemoveEntitiesPacket} object for given id.

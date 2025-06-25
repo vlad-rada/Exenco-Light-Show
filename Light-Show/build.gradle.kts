@@ -1,17 +1,22 @@
 import net.minecrell.pluginyml.bukkit.BukkitPluginDescription
 
+
+
 plugins {
     `java-library`
-    id("io.papermc.paperweight.userdev") version "1.3.8"
-    id("net.minecrell.plugin-yml.bukkit") version "0.5.2"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.17" //update
+    id("de.eldoria.plugin-yml.bukkit") version "0.7.1" //update
 }
 
 group = "net.exenco.lightshow"
-version = "1.2.4"
+version = "1.2.5" //update
 description = "Display a Light-Show in Minecraft."
 
 dependencies {
-    paperDevBundle("1.20.1-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle("1.21.6-R0.1-SNAPSHOT") //update
+    compileOnly("io.papermc.paper:paper-api:1.21.6-R0.1-SNAPSHOT")  //new
+    library("com.google.code.gson", "gson", "2.10.1") //new
+
 }
 
 tasks {
@@ -22,7 +27,8 @@ tasks {
     compileJava {
         options.encoding = Charsets.UTF_8.name()
 
-        options.release.set(17)
+        options.release.set(21) // updated
+
     }
     javadoc {
         options.encoding = Charsets.UTF_8.name()
@@ -34,7 +40,7 @@ tasks {
 
 bukkit {
     main = "net.exenco.lightshow.LightShow"
-    apiVersion = "1.19"
+    apiVersion = "1.21" //update
     author = "Exenco"
     commands {
         register("show") {
@@ -46,7 +52,7 @@ bukkit {
 
     permissions {
         register("lightshow.*") {
-            description = "Gives access to all lightshow comamnds."
+            description = "Gives access to all lightshow commands."
             children = listOf("lightshow.show", "lightshow.check", "lightshow.reload", "lightshow.start", "lightshow.stop", "lightshow.toggle", "lightshow.warning")
         }
         register("lightshow.show") {
@@ -79,3 +85,14 @@ bukkit {
         }
     }
 }
+
+
+
+
+// new
+// see https://docs.papermc.io/paper/dev/userdev/#1205-and-beyond
+// keeping paper and spigot compatability here
+paperweight {
+paperweight.reobfArtifactConfiguration = io.papermc.paperweight.userdev.ReobfArtifactConfiguration.REOBF_PRODUCTION
+}
+

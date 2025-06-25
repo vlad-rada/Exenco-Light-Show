@@ -33,6 +33,9 @@ public class StageManager {
     private final ShowSettings showSettings;
     private final SongManager songManager;
     private final PacketHandler packetHandler;
+
+    private volatile long lastReceived = 0; //new
+
     public StageManager(LightShow lightShow, ConfigHandler configHandler, ShowSettings showSettings, SongManager songManager, PacketHandler packetHandler) {
         this.lightShow = lightShow;
         this.configHandler = configHandler;
@@ -45,8 +48,8 @@ public class StageManager {
 
     public void load() {
         this.artNetReceiver = new ArtNetReceiver(this, showSettings);
-
         dmxMap.clear();
+
         for (ShowSettings.DmxEntry dmxEntry : showSettings.dmxEntryList()) {
             int universeId = dmxEntry.universe();
             JsonArray jsonArray = configHandler.getDmxEntriesJson(dmxEntry.filename());
@@ -89,12 +92,11 @@ public class StageManager {
         }
     }
 
+    //update
     public void receiveArtNet(byte[] message) {
         ArtNetPacket packet = ArtNetPacket.valueOf(message);
-        if (packet == null) {
-            return;
-        }
-        this.receiving = true;
+        if (packet == null) return;
+        lastReceived = System.currentTimeMillis();
         dmxBuffer.setDmxData(packet.getUniverseID(), packet.getDmx());
     }
 
@@ -116,19 +118,11 @@ public class StageManager {
         return artNetReceiver.stop();
     }
 
+    //updated
     public boolean confirmReceiving() {
-        int timeout = showSettings.artNet().timeout();
-        this.receiving = false;
-        long start = System.currentTimeMillis();
-        long current = start;
-        while (!receiving) {
-            Thread.onSpinWait();
-            if (current >= start + timeout) {
-                break;
-            }
-            current = System.currentTimeMillis();
-        }
-        return receiving;
+        int timeout = showSettings.artNet().timeout(); //
+        long now = System.currentTimeMillis();
+        return (now - lastReceived) <= timeout;
     }
 
     public void updateFixtures() {
@@ -141,6 +135,11 @@ public class StageManager {
                     int[] dataArr = new int[size];
                     for (int x = 0; x < size; x++)
                         dataArr[x] = (data[id + x] & 0xFF);
+
+                    //debug log
+                    System.out.println("Updating universe " + entry.getKey() + " with " + data.length + " channels");
+                    System.out.println("Applying to fixture at channel " + id + " with values: " + Arrays.toString(dataArr));
+
                     fixture.applyState(dataArr);
                 });
             });

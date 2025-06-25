@@ -43,8 +43,10 @@ public class ParticleFlareFixture extends ShowFixture {
         float size = (float) valueOfMax(maxSize, data[7]);
 
         Particle particle = ParticleRegistry.getById(particleId);
-        if(particle == null)
-            return;
+        if (particle == null) {
+            System.out.println("[ParticleFlareFixture] Invalid particle ID: " + particleId);
+        return;
+            }
         Object particleData = null;
         if(particle.getDataType() == Particle.DustOptions.class)
             particleData = new Particle.DustOptions(Color.fromRGB(red, green, blue), size);
@@ -52,6 +54,16 @@ public class ParticleFlareFixture extends ShowFixture {
         double offsetX = maxXOffset * offset;
         double offsetY = maxYOffset * offset;
         double offsetZ = maxZOffset * offset;
+
+        System.out.println("[ParticleFlareFixture] Applying state:");
+        System.out.println("  Location: " + location);
+        System.out.println("  Particle: " + particle + " (" + particle.getDataType() + ")");
+        System.out.println("  Count: " + count);
+        System.out.println("  Offset: " + offset + " (X=" + offsetX + ", Y=" + offsetY + ", Z=" + offsetZ + ")");
+        System.out.println("  Time: " + time);
+        System.out.println("  RGB: " + red + ", " + green + ", " + blue);
+        System.out.println("  Size: " + size);
+        System.out.println("  Is tick: " + isTick());
 
         if(isTick() && count > 0) {
             packetHandler.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, time, particleData);
