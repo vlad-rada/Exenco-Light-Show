@@ -1,3 +1,7 @@
+
+See an early demo of the MC 1.21.6 vladra fork of this plugin here: https://www.reddit.com/r/Minecraft/comments/1llizuu/light_shows_in_mc_contains_flashing_lights/ 
+
+
 # Light-Show
 Spigot Plugin for creating light shows/concerts in Minecraft. It works by simulating ingame effects like guardian and beacon beams.
 
