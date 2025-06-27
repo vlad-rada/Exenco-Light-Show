@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "net.exenco.lightshow"
-version = "1.2.5" //update
+version = "2.0.0" //update
 description = "Display a Light-Show in Minecraft."
 
 dependencies {
