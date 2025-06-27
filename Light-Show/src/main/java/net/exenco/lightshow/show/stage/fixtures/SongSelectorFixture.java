@@ -3,15 +3,20 @@ package net.exenco.lightshow.show.stage.fixtures;
 import com.google.gson.JsonObject;
 import net.exenco.lightshow.show.song.SongManager;
 import net.exenco.lightshow.show.stage.StageManager;
+import org.bukkit.World;
 
 public class SongSelectorFixture extends ShowFixture {
 
     private final int range;
     private final SongManager songManager;
-    public SongSelectorFixture(JsonObject configJson, StageManager stageManager) {
+    private final World world;
+
+    public SongSelectorFixture(JsonObject configJson, StageManager stageManager, World world) {
         super(configJson, stageManager);
         this.songManager = stageManager.getSongManager();
         this.range = stageManager.getShowSettings().showEffects().selector().maxValue();
+        this.world = world;
+
     }
 
     @Override

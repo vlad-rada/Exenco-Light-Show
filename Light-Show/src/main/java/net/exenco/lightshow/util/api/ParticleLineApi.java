@@ -1,13 +1,14 @@
 package net.exenco.lightshow.util.api;
 
-import net.exenco.lightshow.util.PacketHandler;
+import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.World;
 import org.bukkit.util.Vector;
 
 public class ParticleLineApi {
 
-    private Vector start;
-    private Vector destination;
+    private Location start;
+    private Location destination;
     private double maxDistance;
 
     private Particle particle;
@@ -17,54 +18,87 @@ public class ParticleLineApi {
     private double time = 0;
     private Object data = null;
 
-    private final PacketHandler packetHandler;
-    public ParticleLineApi(Vector location, PacketHandler packetHandler) {
-        this.start = location;
-        this.packetHandler = packetHandler;
+    public ParticleLineApi(Location start) {
+        this.start = start.clone();
     }
 
     public void play() {
-        Vector iterator = start.clone();
-        Vector direc = destination.clone().subtract(start).normalize().multiply(0.15);
-        for(double distance = 0; distance < maxDistance; distance = iterator.distance(start)) {
-            packetHandler.spawnParticle(particle, iterator, 1, offsetX, offsetY, offsetZ, time, data);
-            iterator.add(direc);
+        World world = start.getWorld();
+        if (world == null || destination == null) return;
+
+        Vector origin = start.clone().toVector();
+        Vector iterator = origin.clone();
+        Vector direction = destination.clone().toVector()
+                .subtract(origin)
+                .normalize()
+                .multiply(0.15);
+
+        // spawn until we've gone maxDistance from the start point
+        while (iterator.distance(origin) < maxDistance) {
+            if (data != null) {
+                world.spawnParticle(
+                        particle,
+                        iterator.getX(), iterator.getY(), iterator.getZ(),
+                        1,            // count
+                        offsetX, offsetY, offsetZ,
+                        time,
+                        data
+                );
+            } else {
+                world.spawnParticle(
+                        particle,
+                        iterator.getX(), iterator.getY(), iterator.getZ(),
+                        1,            // count
+                        offsetX, offsetY, offsetZ,
+                        time
+                );
+            }
+            iterator.add(direction);
         }
     }
 
-    public void setStart(Vector start) {
-        this.start = start;
+    public ParticleLineApi setStart(Location start) {
+        this.start = start.clone();
+        return this;
     }
-
-    public void setDestination(Vector destination) {
-        this.destination = destination;
+    public ParticleLineApi setDestination(Location destination) {
+        this.destination = destination.clone();
+        return this;
     }
-
-    public void setMaxDistance(double maxDistance) {
+    public ParticleLineApi setMaxDistance(double maxDistance) {
         this.maxDistance = maxDistance;
+        return this;
     }
 
-    public void setParticle(Particle particle) {
+    public ParticleLineApi setParticle(Particle particle) {
+
         this.particle = particle;
+        return this;
     }
 
-    public void setOffsetX(double offsetX) {
+    public ParticleLineApi setOffsetX(double offsetX) {
+
         this.offsetX = offsetX;
+        return this;
     }
 
-    public void setOffsetY(double offsetY) {
+    public ParticleLineApi setOffsetY(double offsetY) {
         this.offsetY = offsetY;
+        return this;
     }
 
-    public void setOffsetZ(double offsetZ) {
+    public ParticleLineApi setOffsetZ(double offsetZ) {
         this.offsetZ = offsetZ;
+        return this;
     }
 
-    public void setTime(double time) {
+    public ParticleLineApi setTime(double time) {
         this.time = time;
+        return this;
     }
 
-    public void setData(Object data) {
+    public ParticleLineApi setData(Object data) {
         this.data = data;
+        return this;
     }
 }

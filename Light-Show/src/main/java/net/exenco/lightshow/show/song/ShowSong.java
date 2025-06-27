@@ -1,7 +1,10 @@
 package net.exenco.lightshow.show.song;
 
 import com.google.gson.JsonObject;
+import org.bukkit.Registry;
+import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.NamespacedKey;
 
 public class ShowSong {
     private final int id;
@@ -11,8 +14,10 @@ public class ShowSong {
     private final int year;
     private final String description;
     private final long duration;
-    private final String sound;
+    private final Sound sound;
     private final SoundCategory soundCategory;
+    private final float volume;
+    private final float pitch;
 
     public ShowSong(int id, JsonObject songJson) {
         this.id = id;
@@ -22,8 +27,22 @@ public class ShowSong {
         this.year = songJson.get("Year").getAsInt();
         this.description = songJson.has("Description") ? songJson.get("Description").getAsString() : "";
         this.duration = songJson.get("Duration").getAsLong();
-        this.sound = songJson.get("Sound").getAsString();
+        NamespacedKey key = NamespacedKey.fromString(songJson.get("Sound").getAsString());
+        assert key != null;
+        Sound s = Registry.SOUNDS.get(key);
+        if (s == null) {
+            throw new IllegalArgumentException("Unknown sound: " + key);
+        }
+        this.sound = s;
         this.soundCategory = songJson.has("SoundCategory") ? SoundCategory.valueOf(songJson.get("SoundCategory").getAsString().toUpperCase()) : SoundCategory.RECORDS;
+        this.volume = songJson.has("Volume")
+                ? songJson.get("Volume").getAsFloat()
+                : 1.0f;
+
+        this.pitch  = songJson.has("Pitch")
+                ? songJson.get("Pitch").getAsFloat()
+                : 1.0f;
+
     }
 
     public int getId() {
@@ -54,11 +73,20 @@ public class ShowSong {
         return duration;
     }
 
-    public String getSound() {
+    public Sound getSound() {
         return sound;
     }
 
     public SoundCategory getSoundCategory() {
         return soundCategory;
+    }
+
+    public float getVolume() {
+        return volume;
+    }
+
+    public float getPitch() {
+        return pitch;
+
     }
 }

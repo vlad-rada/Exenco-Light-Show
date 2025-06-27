@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import net.exenco.lightshow.show.stage.StageManager;
 import net.exenco.lightshow.util.api.LogoApi;
 import net.exenco.lightshow.util.ConfigHandler;
+import org.bukkit.World;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -15,13 +17,15 @@ public class LogoFixture extends ShowFixture {
 
     private final LogoApi logoApi;
     private final double maxSize;
+    private final World world;
 
     private int type = -1;
     private double size = -1;
 
-    public LogoFixture(JsonObject configJson, StageManager stageManager) {
+    public LogoFixture(JsonObject configJson, StageManager stageManager, World world) {
         super(configJson, stageManager);
         ConfigHandler configHandler = stageManager.getConfigHandler();
+        this.world = world;
 
         File directory = new File("plugins//Light-Show//Logos");
         configHandler.createDirectory(directory);
@@ -40,7 +44,7 @@ public class LogoFixture extends ShowFixture {
         this.maxSize = configJson.has("Size") ? configJson.get("Size").getAsDouble() : 2.0D;
         double yaw = configJson.has("Yaw") ? configJson.get("Yaw").getAsDouble() : 0.0D;
         double pitch = configJson.has("Pitch") ? configJson.get("Pitch").getAsDouble() : 0.0D;
-        this.logoApi = new LogoApi(stageManager.getPacketHandler(), yaw, pitch);
+        this.logoApi = new LogoApi(yaw, pitch);
     }
 
     @Override

@@ -1,11 +1,14 @@
 package net.exenco.lightshow.show.stage.fixtures;
 
 import com.google.gson.JsonObject;
+import net.exenco.lightshow.LightShow;
 import net.exenco.lightshow.show.stage.StageManager;
-import net.exenco.lightshow.util.PacketHandler;
+import net.exenco.lightshow.util.ProximitySensor;
+import net.exenco.lightshow.util.ShowSettings;
 import net.exenco.lightshow.util.VectorUtils;
 import net.exenco.lightshow.util.api.EndCrystalApi;
 import org.bukkit.FluidCollisionMode;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
@@ -14,15 +17,24 @@ public class CrystalFixture extends ShowFixture {
 
     private final double maxDistance;
     private final EndCrystalApi endCrystalApi;
+    private final Location startLocation;
+    private final ProximitySensor proximity;
+    private final World world;
 
-    private final PacketHandler packetHandler;
-    public CrystalFixture(JsonObject configJson, StageManager stageManager) {
+    public CrystalFixture(JsonObject configJson, StageManager stageManager, World world) {
         super(configJson, stageManager);
-        this.packetHandler = stageManager.getPacketHandler();
+        LightShow show = stageManager.getLightShow();
+        ShowSettings settings = stageManager.getShowSettings();
 
-        this.endCrystalApi = new EndCrystalApi(this.location, stageManager.getPacketHandler());
-        this.maxDistance = configJson.has("MaxDistance") ? configJson.get("MaxDistance").getAsDouble() : 100;
+        this.proximity = stageManager.getProximitySensor();
+        this.world = world;
 
+        this.maxDistance = configJson.has("MaxDistance")
+                ? configJson.get("MaxDistance").getAsDouble()
+                : 100;
+        this.startLocation = this.location.clone();
+
+        this.endCrystalApi = new EndCrystalApi(show, stageManager.getProximitySensor(),this.startLocation);
         this.endCrystalApi.spawn();
     }
 
@@ -34,29 +46,32 @@ public class CrystalFixture extends ShowFixture {
     @Override
     public void applyState(int[] data) {
         double distance = valueOfMax(this.maxDistance, data[0]);
-        float pan = 360 * -((float) (data[1]<<8 | data[2]) / 65535);
-        float tilt = 360 * -((float) (data[3]<<8 | data[4]) / 65535);
+        float pan  = 360f * -((data[1] << 8 | data[2]) & 0xFFFF) / 65535f;
+        float tilt = 360f * -((data[3] << 8 | data[4]) & 0xFFFF) / 65535f;
 
-        Vector destination = getDestination(pan, tilt, distance);
-        endCrystalApi.setDestination(destination);
+        Vector dir = VectorUtils.getDirectionVector(pan - 90, tilt + 90);
+        Location dest;
+        if (distance <= 0) {
+            // fallback below the crystal
+            dest = startLocation.clone().add(0, -2, 0);
+        } else {
+            Location rawEnd = startLocation.clone().add(dir.multiply(distance));
+            RayTraceResult hit = startLocation.getWorld().rayTraceBlocks(
+                    startLocation,
+                    dir,
+                    distance,
+                    FluidCollisionMode.NEVER,
+                    true
+            );
+            dest = (hit != null)
+                    ? hit.getHitPosition().toLocation(startLocation.getWorld())
+                    : rawEnd;
+        }
+
+        endCrystalApi.setDestination(dest);
     }
-
-    private Vector getDestination(float yaw, float pitch, double distance) {
-        Vector vector = VectorUtils.getDirectionVector(yaw - 90, pitch + 90);
-        Vector start = this.location.clone();
-
-        if(distance == 0)
-            return start.add(new Vector(0, -2, 0));
-
-        return rayTrace(start, start.clone().add(vector.multiply(distance)));
-    }
-
-    private Vector rayTrace(Vector location, Vector destination) {
-        Vector direction = destination.clone().subtract(location).normalize();
-        World world = packetHandler.getLevel().getWorld();
-        RayTraceResult rayTraceResult = world.rayTraceBlocks(location.toLocation(world), direction, location.distance(destination), FluidCollisionMode.NEVER, true);
-        if(rayTraceResult != null)
-            return rayTraceResult.getHitPosition();
-        return destination;
+    @Override
+    public void shutdown() {
+        endCrystalApi.destroy();
     }
 }

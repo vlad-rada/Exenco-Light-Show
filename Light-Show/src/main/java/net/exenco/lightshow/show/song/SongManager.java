@@ -43,18 +43,30 @@ public class SongManager {
         }
     }
 
+    /** Play the song with the given ID at the stage’s location. */
     public void play(int id) {
-        if(songList.get(id) == null)
-            return;
-        this.currentSong = songList.get(id);
-        Vector location = showSettings.stage().location().toVector();
-        packetHandler.playSound(location, currentSong.getSound(), currentSong.getSoundCategory(), 1.0F, 1.0F);
+        ShowSong song = songList.get(id);
+        if (song == null) return;
+        this.currentSong = song;
+
+        Vector loc = showSettings
+                .stage()
+                .location()
+                .toVector();
+
+        // now uses Sound + volume + pitch
+        packetHandler.playSound(
+                loc,
+                song.getSound(),   // org.bukkit.Sound
+                song.getVolume(),  // float, e.g. 1.0f
+                song.getPitch()    // float, e.g. 1.0f
+        );
     }
 
+    /** Stop whatever is currently playing. */
     public void stop() {
-        if(currentSong == null)
-            return;
-        packetHandler.stopSound(currentSong.getSound(), SoundCategory.RECORDS);
+        if (currentSong == null) return;
+        packetHandler.stopSound(currentSong.getSound());
         this.currentSong = null;
     }
 

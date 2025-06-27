@@ -1,58 +1,81 @@
 package net.exenco.lightshow.util.api;
 
-import net.exenco.lightshow.util.PacketHandler;
+import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.util.Vector;
+import org.bukkit.World;
+
 
 public class ParticleFlareApi {
-    private Vector location;
+    private Location location;
     private Particle particle;
     private int count = 1;
     private double offsetX = 0;
     private double offsetY = 0;
     private double offsetZ = 0;
     private double time = 0;
-    private Object data = null;
+    private Object data = null;  // blockData, dust options, item stack, etc.
 
-    private final PacketHandler packetHandler;
-    public ParticleFlareApi(Vector location, PacketHandler packetHandler) {
+    public ParticleFlareApi(Location location) {
         this.location = location;
-        this.packetHandler = packetHandler;
     }
 
     public void play() {
-        packetHandler.spawnParticle(particle, location, count, offsetX, offsetY, offsetZ, time, data);
+        World world = location.getWorld();
+        if (world == null) return;
+
+        if (data != null) {
+            world.spawnParticle(particle,
+                    location,
+                    count,
+                    offsetX, offsetY, offsetZ,
+                    time,
+                    data);
+        } else {
+            world.spawnParticle(particle,
+                    location,
+                    count,
+                    offsetX, offsetY, offsetZ,
+                    time);
+        }
     }
 
-    public void setLocation(Vector location) {
+    public ParticleFlareApi setLocation(Location location) {
         this.location = location;
+        return this;
     }
 
-    public void setParticle(Particle particle) {
+    public ParticleFlareApi setParticle(Particle particle) {
         this.particle = particle;
+        return this;
     }
 
-    public void setCount(int count) {
+    public ParticleFlareApi setCount(int count) {
         this.count = count;
+        return this;
     }
 
-    public void setOffsetX(double offsetX) {
+    public ParticleFlareApi setOffsetX(double offsetX) {
         this.offsetX = offsetX;
+        return this;
     }
 
-    public void setOffsetY(double offsetY) {
+    public ParticleFlareApi setOffsetY(double offsetY) {
         this.offsetY = offsetY;
+        return this;
     }
 
-    public void setOffsetZ(double offsetZ) {
+    public ParticleFlareApi setOffsetZ(double offsetZ) {
         this.offsetZ = offsetZ;
+        return this;
     }
 
-    public void setTime(double time) {
+    public ParticleFlareApi setTime(double time) {
         this.time = time;
+        return this;
     }
 
-    public void setData(Object data) {
+    public ParticleFlareApi setData(Object data) {
         this.data = data;
+        return this;
     }
 }

@@ -1,31 +1,53 @@
 package net.exenco.lightshow.show.stage.fixtures;
 
 import com.google.gson.JsonObject;
+import net.exenco.lightshow.LightShow;
 import net.exenco.lightshow.show.stage.StageManager;
 import net.exenco.lightshow.util.ConfigHandler;
-import net.exenco.lightshow.util.PacketHandler;
+import net.exenco.lightshow.util.ProximitySensor;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Lightable;
-import org.bukkit.craftbukkit.CraftWorld; //updated
+import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+
+/**
+ Overhauled to not use NMS
+ */
 
 public class BlockChangerFixture extends ShowFixture {
+    private final LightShow plugin;
+    private final ProximitySensor proximity;
+    private final World world;
     private final boolean lit;
     private final BlockData enabledState;
     private final BlockData disabledState;
 
-    private final PacketHandler packetHandler;
-    public BlockChangerFixture(JsonObject jsonObject, StageManager stageManager) {
+
+    private boolean lastState = false;
+
+    public BlockChangerFixture(JsonObject jsonObject, StageManager stageManager, World world) {
         super(jsonObject, stageManager);
-        this.packetHandler = stageManager.getPacketHandler();
+        this.plugin = stageManager.getLightShow();
+        this.proximity = stageManager.getProximitySensor();
+        this.world = world;
+
 
         this.lit = !jsonObject.has("Lit") || jsonObject.get("Lit").getAsBoolean();
-        Material enabledMaterial = jsonObject.has("EnabledState") ? ConfigHandler.getMaterialFromName(jsonObject.get("EnabledState").getAsString()) : Material.REDSTONE_LAMP;
-        this.enabledState = enabledMaterial.createBlockData();
-        Material disabledMaterial = jsonObject.has("DisabledState") ? ConfigHandler.getMaterialFromName(jsonObject.get("DisabledState").getAsString()) : Material.REDSTONE_LAMP;
-        this.disabledState = disabledMaterial.createBlockData();
+
+        Material onMat = jsonObject.has("EnabledState")
+                ? ConfigHandler.getMaterialFromName(jsonObject.get("EnabledState").getAsString())
+                : Material.REDSTONE_LAMP;
+        this.enabledState = onMat.createBlockData();
+
+        Material offMat = jsonObject.has("DisabledState")
+                ? ConfigHandler.getMaterialFromName(jsonObject.get("DisabledState").getAsString())
+                : Material.REDSTONE_LAMP;
+        this.disabledState = offMat.createBlockData();
     }
 
     @Override
@@ -33,32 +55,28 @@ public class BlockChangerFixture extends ShowFixture {
         return 1;
     }
 
-    private boolean lastState;
     @Override
     public void applyState(int[] data) {
         boolean enabled = data[0] > 0;
-
-        if(lastState == enabled)
-            return;
-
+        if (enabled == lastState) return;
         lastState = enabled;
-        BlockData updateBlockData;
 
-        if(enabled) {
-            updateBlockData = enabledState;
-            if(lit && updateBlockData instanceof Lightable lightable)
-                lightable.setLit(true);
-        } else {
-            updateBlockData = disabledState;
-            if(lit && updateBlockData instanceof Lightable lightable)
-                lightable.setLit(false);
+        BlockData update = enabled ? enabledState.clone() : disabledState.clone();
+        // apply "lit" if supported
+        if (lit && update instanceof Lightable lightable) {
+            lightable.setLit(enabled);
         }
-        if(updateBlockData instanceof Levelled levelled)
+        if (update instanceof Levelled levelled) {
             levelled.setLevel(data[0] / 16);
-        Bukkit.getScheduler().runTask(stageManager.getLightShow(), () -> {
-            CraftWorld world = packetHandler.getLevel().getWorld();
-            world.setBlockData(location.toLocation(world), updateBlockData);
-            world.getBlockAt(location.toLocation(world)).getState().update(true, true);
+        }
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            Location loc = location;
+            world.setBlockData(loc, update);
+            world.getBlockAt(loc).getState().update(true, true);
+            for (Player p : proximity.getPlayerList()) {
+                p.sendBlockChange(loc, update);
+            }
         });
     }
 }

@@ -2,6 +2,8 @@ package net.exenco.lightshow.show.artnet;
 
 import net.exenco.lightshow.show.stage.StageManager;
 import net.exenco.lightshow.util.ShowSettings;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import javax.crypto.*;
@@ -20,6 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ArtNetReceiver {
+    private final JavaPlugin plugin;
     private boolean running;
     private BukkitRunnable bukkitRunnable;
     private DatagramSocket datagramSocket;
@@ -27,9 +30,10 @@ public class ArtNetReceiver {
     private final StageManager stageManager;
     private final ShowSettings showSettings;
     private final Logger logger;
-    public ArtNetReceiver(StageManager stageManager, ShowSettings showSettings) {
+    public ArtNetReceiver(StageManager stageManager, ShowSettings showSettings, JavaPlugin plugin) {
         this.stageManager = stageManager;
         this.showSettings = showSettings;
+        this.plugin = plugin;
         this.logger = stageManager.getLightShow().getLogger();
     }
 
@@ -127,7 +131,9 @@ public class ArtNetReceiver {
                         }
                         stageManager.receiveArtNet(data);
                     } catch (SocketTimeoutException ignored) {}
-                    stageManager.updateFixtures();
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        stageManager.updateFixtures();
+                    });
                 }
             } catch (IOException e) {
                 if(running)

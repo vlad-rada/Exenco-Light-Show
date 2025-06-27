@@ -3,15 +3,19 @@ package net.exenco.lightshow.show.stage.fixtures;
 import com.google.gson.JsonObject;
 import net.exenco.lightshow.show.stage.StageManager;
 import net.exenco.lightshow.util.ConfigHandler;
+import org.bukkit.Location;
 import org.bukkit.util.Vector;
+import org.bukkit.Bukkit;
 
 public abstract class ShowFixture {
-    protected final Vector location;
+    protected final Location location;
     protected final StageManager stageManager;
     protected long tickSize;
     public ShowFixture(JsonObject configJson, StageManager stageManager) {
         this.stageManager = stageManager;
-        this.location = configJson.has("Location") ? ConfigHandler.translateVector(configJson.getAsJsonObject("Location")) : new Vector(0, 0, 0);
+        this.location = configJson.has("Location")
+                ? ConfigHandler.translateLocation(configJson.getAsJsonObject("Location"))
+                : new Location(Bukkit.getWorlds().getFirst(), 0, 0, 0);
         this.tickSize = configJson.has("TickSize") ? configJson.get("TickSize").getAsInt() : 100;
     }
 
@@ -36,4 +40,6 @@ public abstract class ShowFixture {
             millis = current;
         return value;
     }
+
+    public void shutdown() { }
 }

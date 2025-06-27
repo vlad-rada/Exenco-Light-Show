@@ -1,127 +1,163 @@
 package net.exenco.lightshow.show.stage.fixtures;
 
 import com.google.gson.JsonObject;
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
+import net.exenco.lightshow.LightShow;
 import net.exenco.lightshow.show.stage.StageManager;
-import net.exenco.lightshow.util.PacketHandler;
+import net.exenco.lightshow.util.ProximitySensor;
 import net.exenco.lightshow.util.ShowSettings;
 import net.exenco.lightshow.util.VectorUtils;
 import net.exenco.lightshow.util.api.GuardianBeamApi;
-import net.minecraft.core.Rotations;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.decoration.ArmorStand;
 import org.bukkit.*;
-import org.bukkit.craftbukkit.CraftWorld; //updated
-import org.bukkit.craftbukkit.inventory.CraftItemStack; //updated
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.util.*;
+import org.bukkit.util.EulerAngle;
+import org.bukkit.util.RayTraceResult;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.Vector;
+import com.destroystokyo.paper.profile.PlayerProfile;
+import com.destroystokyo.paper.profile.ProfileProperty;
 
-import java.lang.reflect.Field;
-import java.util.Objects;
+
 import java.util.UUID;
 
 public class MovingHeadFixture extends ShowFixture {
 
+    private final World world;
+    //dmx state
     private int state;
     private float yaw;
     private float pitch;
 
-    private ArmorStand headArmorStand = null;
-    private ArmorStand lightArmorStand = null;
-    private final PacketHandler packetHandler;
+    //armor stands
+    private ArmorStand headStand, lightStand;
+
+
+    //beam api
+    private final GuardianBeamApi guardianBeamApi;
+    private final LightShow show;
+    private final ProximitySensor proximity;
+    private final NamespacedKey marker;
+
+    //beam positions
+    private final Location startLocation;
     private final double maxDistance;
 
-    private final GuardianBeamApi guardianBeamApi;
+    //textures
     private final String offTexture;
     private final String lowTexture;
     private final String mediumTexture;
     private final String highTexture;
-    public MovingHeadFixture(JsonObject jsonObject, StageManager stageManager) {
+
+    //bool
+    private boolean beamOn = false;
+
+
+    public MovingHeadFixture(JsonObject jsonObject, StageManager stageManager, World world) {
         super(jsonObject, stageManager);
-        this.packetHandler = stageManager.getPacketHandler();
+        this.world = world;
+        this.show = stageManager.getLightShow();
+        this.marker = new NamespacedKey(show, "moving_head_fixture");
+        this.proximity = stageManager.getProximitySensor();
+        this.guardianBeamApi = new GuardianBeamApi(stageManager.getLightShow(), stageManager.getProximitySensor());
         ShowSettings showSettings = stageManager.getShowSettings();
+
+        //textures
         this.offTexture = showSettings.showEffects().movingLight().offTexture();
         this.lowTexture = showSettings.showEffects().movingLight().lowTexture();
         this.mediumTexture = showSettings.showEffects().movingLight().mediumTexture();
         this.highTexture = showSettings.showEffects().movingLight().highTexture();
 
-        this.guardianBeamApi = new GuardianBeamApi(location.clone().subtract(new Vector(0, 0.5, 0)), packetHandler);
-
+        //pos
+        this.startLocation = this.location.clone();
         this.maxDistance = jsonObject.has("MaxDistance") ? jsonObject.get("MaxDistance").getAsDouble() : 100;
 
+        //armor stands
         spawnHeadArmorStand(offTexture);
         spawnLightArmorStand();
         this.state = 0;
+
+
     }
 
-    private ItemStack getSpotlightHead(String headTexture) {
-        ItemStack itemStack = new ItemStack(Material.PLAYER_HEAD);
-        SkullMeta skullMeta = (SkullMeta) itemStack.getItemMeta();
 
-        GameProfile gameProfile = new GameProfile(UUID.randomUUID(), null);
-        gameProfile.getProperties().put("textures", new Property("textures", headTexture));
-        try {
-            Field field = Objects.requireNonNull(skullMeta).getClass().getDeclaredField("profile");
-            field.setAccessible(true);
-            field.set(skullMeta, gameProfile);
-        } catch(NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+    private ItemStack makeSkull(String base64) {
+        ItemStack skull = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) skull.getItemMeta();
+        if (meta != null) {
+            PlayerProfile prof = Bukkit.createProfile(UUID.randomUUID());
+            prof.setProperty(new ProfileProperty("textures", base64));
+            meta.setOwnerProfile(prof);
+            skull.setItemMeta(meta);
         }
-        itemStack.setItemMeta(skullMeta);
-        return itemStack;
+        return skull;
     }
 
     private void lookAt(float yaw, float pitch) {
-        Rotations vector = new Rotations(pitch, yaw, 0);
-        this.headArmorStand.setHeadPose(vector);
-        packetHandler.updateEntity(this.headArmorStand);
-
-        this.lightArmorStand.setHeadPose(vector);
-        packetHandler.updateEntity(this.lightArmorStand);
+        double xr = Math.toRadians(pitch), yr = Math.toRadians(yaw);
+        headStand.setHeadPose(new EulerAngle(xr, yr, 0));
+        lightStand.setHeadPose(new EulerAngle(xr, yr, 0));
     }
 
-    private void spawnHeadArmorStand(String headTexture) {
-        Vector spotlightLocation = location.clone().subtract(new Vector(0, 1.5, 0));
-        double x = spotlightLocation.getX();
-        double y = spotlightLocation.getY();
-        double z = spotlightLocation.getZ();
-        this.headArmorStand = new ArmorStand(packetHandler.getLevel(), x, y, z);
-        this.headArmorStand.setXRot(0.0F);
-        this.headArmorStand.setYRot(0.0F);
-        this.headArmorStand.setNoGravity(true);
-        this.headArmorStand.setInvisible(true);
-        this.headArmorStand.setItemSlot(EquipmentSlot.HEAD, CraftItemStack.asNMSCopy(getSpotlightHead(headTexture)));
+    private void spawnHeadArmorStand(String texture) {
+        Location at = startLocation.clone().subtract(0.5, 1.5, 0.5);
 
-        this.packetHandler.spawnEntity(this.headArmorStand);
+        for (Entity e : world.getNearbyEntities(at, 0.5, 0.5, 0.5)) {
+            if (e instanceof ArmorStand as
+                    && as.getPersistentDataContainer().has(marker, PersistentDataType.BYTE)) {
+                headStand = as;
+                updateHeadArmorStand(texture);
+                return;
+            }
+        }
+
+        headStand = (ArmorStand) world.spawnEntity(at, EntityType.ARMOR_STAND);
+        headStand.setGravity(false);
+        headStand.setVisible(false);
+        headStand.setInvulnerable(true);
+        headStand.setHelmet(makeSkull(texture));
+
+        headStand.getPersistentDataContainer()
+                .set(marker, PersistentDataType.BYTE, (byte)1);
+
+        // 4) hide from all players, then show only to your proximity list
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.hideEntity(show, headStand);
+        }
+        for (Player p : proximity.getPlayerList()) {
+            p.showEntity(show, headStand);
+        }
     }
 
-    private void updateHeadArmorStand(String headTexture) {
-        this.headArmorStand.setItemSlot(EquipmentSlot.HEAD, CraftItemStack.asNMSCopy(getSpotlightHead(headTexture)));
-        this.packetHandler.updateEntityEquipment(this.headArmorStand);
+    private void updateHeadArmorStand(String texture) {
+        headStand.setHelmet(makeSkull(texture));
     }
 
     private void spawnLightArmorStand() {
-        Vector lightLocation = location.clone().subtract(new Vector(0, 0.775, 0));
-        double x = lightLocation.getX();
-        double y = lightLocation.getY();
-        double z = lightLocation.getZ();
-        this.lightArmorStand = new ArmorStand(packetHandler.getLevel(), x, y, z);
-        this.lightArmorStand.setXRot(0.0F);
-        this.lightArmorStand.setYRot(0.0F);
-        this.lightArmorStand.setNoGravity(true);
-        this.lightArmorStand.setSmall(true);
-        this.lightArmorStand.setInvisible(true);
-        this.lightArmorStand.setItemSlot(EquipmentSlot.HEAD, CraftItemStack.asNMSCopy(new ItemStack(Material.AIR)));
-        this.lightArmorStand.setHeadPose(new Rotations(yaw, pitch, 0));
+        Location at = startLocation.clone().subtract(0.5, 0.775, 0.5);
+        lightStand = (ArmorStand) at.getWorld().spawnEntity(at, EntityType.ARMOR_STAND);
+        lightStand.setGravity(false);
+        lightStand.setVisible(false);
+        lightStand.setSmall(true);
+        lightStand.setHelmet(new ItemStack(Material.AIR));
 
-        this.packetHandler.spawnEntity(this.lightArmorStand);
+        Bukkit.getOnlinePlayers().forEach(p -> p.hideEntity(show, lightStand));
+        proximity.getPlayerList().forEach(p -> p.showEntity(show, lightStand));
     }
 
-    private void updateLightArmorStand(Material material) {
-        this.lightArmorStand.setItemSlot(EquipmentSlot.HEAD, CraftItemStack.asNMSCopy(new ItemStack(material)));
-        this.packetHandler.updateEntityEquipment(this.lightArmorStand);
+    private void updateLightArmorStand(Material mat) {
+        lightStand.setHelmet(new ItemStack(mat));
+    }
+
+    @Override
+    public void shutdown() {
+        if (beamOn) {
+            guardianBeamApi.destroyBeam();
+            beamOn = false;
+        }
     }
 
     @Override
@@ -131,79 +167,82 @@ public class MovingHeadFixture extends ShowFixture {
 
     @Override
     public void applyState(int[] data) {
+
         int dim = asRoundedPercentage(data[0]);
-        float pan = 360 * -((float) (data[1]<<8 | data[2]) / 65535);
-        float tilt = 360 * -((float) (data[3]<<8 | data[4]) / 65535);
-        double distance = valueOfMax(this.maxDistance, data[5]);
+        float pan  = 360f * -(((data[1] << 8 | data[2]) & 0xFFFF) / 65535f);
+        float tilt = 360f * -(((data[3] << 8 | data[4]) & 0xFFFF) / 65535f);
+        double distance = valueOfMax(maxDistance, data[5]);
         boolean colourChange = data[6] > 0;
 
-        if(dim > 66) {
-            if(state != 3) {
-                state = 3;
-                updateHeadArmorStand(highTexture);
-                updateLightArmorStand(Material.TORCH);
+
+        int newState = (dim > 66 ? 3 : dim > 33 ? 2 : dim > 0 ? 1 : 0);
+        if (newState != state) {
+            state = newState;
+            switch (state) {
+                case 3 -> {
+                    updateHeadArmorStand(highTexture);
+                    updateLightArmorStand(Material.TORCH);
+                }
+                case 2 -> {
+                    updateHeadArmorStand(mediumTexture);
+                    updateLightArmorStand(Material.SOUL_TORCH);
+                }
+                case 1 -> {
+                    updateHeadArmorStand(lowTexture);
+                    updateLightArmorStand(Material.REDSTONE_TORCH);
+                }
+                default -> {
+                    updateHeadArmorStand(offTexture);
+                    updateLightArmorStand(Material.AIR);
+                }
             }
-        } else if(dim > 33) {
-            if(state != 2) {
-                state = 2;
-                updateHeadArmorStand(mediumTexture);
-                updateLightArmorStand(Material.SOUL_TORCH);
-            }
-        } else if(dim > 0) {
-            if(state != 1) {
-                state = 1;
-                updateHeadArmorStand(lowTexture);
-                updateLightArmorStand(Material.REDSTONE_TORCH);
-            }
+        }
+
+        if (pan != yaw || tilt != pitch) {
+            yaw = pan;
+            pitch = tilt;
+            lookAt(yaw, tilt);
+        }
+
+        guardianBeamApi.updateRotation(yaw, pitch);
+
+        Vector dir = VectorUtils.getDirectionVector(yaw - 90, tilt + 90);
+        Location rawEnd = startLocation.clone().add(dir.multiply(distance));
+
+        Location endLoc;
+        if (distance <= 0 || dir.lengthSquared() < 1e-6) {
+            endLoc = rawEnd;
         } else {
-            if(state != 0) {
-                state = 0;
-                updateHeadArmorStand(offTexture);
-                updateLightArmorStand(Material.AIR);
+            // normalize direction and ray-trace up to `distance`
+            Vector unit = dir.clone().normalize();
+            RayTraceResult hit = world.rayTraceBlocks(
+                    startLocation,
+                    unit,
+                    distance,
+                    FluidCollisionMode.NEVER,
+                    true
+            );
+            endLoc = (hit != null)
+                    ? hit.getHitPosition().toLocation(world)
+                    : rawEnd;
+        }
+
+        // beam on/off logic
+        boolean wantBeam = dim > 0 && distance > 0;
+        if (wantBeam) {
+            if (!beamOn) {
+                guardianBeamApi.spawnBeam(startLocation, endLoc);
+                beamOn = true;
+            } else {
+                guardianBeamApi.moveEndpoint(endLoc);
             }
-        }
-
-        if(this.yaw != pan || this.pitch != tilt) {
-            this.yaw = pan;
-            this.pitch = tilt;
-            lookAt(pan, tilt);
-        }
-
-        boolean enableBeam = dim > 0 && distance > 0;
-        if(enableBeam && !guardianBeamApi.isSpawned()) {
-            guardianBeamApi.spawn();
-        } else if(!enableBeam && guardianBeamApi.isSpawned()) {
-            guardianBeamApi.destroy();
-        }
-
-        if(enableBeam && guardianBeamApi.isSpawned()) {
-            guardianBeamApi.setDestination(getDestination(yaw, pitch, distance));
-            if(colourChange && isTick())
-                guardianBeamApi.callColorChange();
+        } else if (beamOn) {
+            guardianBeamApi.destroyBeam();
+            beamOn = false;
         }
     }
 
-    private Vector getDestination(float yaw, float pitch, double distance) {
-        Vector vector = VectorUtils.getDirectionVector(yaw - 90, pitch + 90);
-        Vector start = this.location.clone();
 
-        if(distance == 0)
-            return start;
 
-        return rayTrace(start, start.clone().add(vector.multiply(distance)));
-    }
-
-    private Vector rayTrace(Vector location, Vector destination) {
-        Vector end = destination.clone();
-        double maxDistance = location.distance(end);
-        Vector start = location.clone();
-        Vector direction = end.clone().subtract(start).normalize();
-        start.add(direction);
-        CraftWorld world = packetHandler.getLevel().getWorld();
-        Location startLocation = start.toLocation(world);
-        RayTraceResult rayTraceResult = world.rayTraceBlocks(startLocation, direction, maxDistance, FluidCollisionMode.NEVER, true);
-        if(rayTraceResult != null)
-            return rayTraceResult.getHitPosition();
-        return end;
-    }
 }
+

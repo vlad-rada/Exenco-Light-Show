@@ -11,8 +11,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import net.exenco.lightshow.listener.FixtureSignListener;
+import java.nio.charset.StandardCharsets;
+
 
 import java.util.Objects;
+import java.io.*;
 
 /**
  * Main Class of the Light-Show Plugin for Spigot 1.19.4
@@ -39,10 +43,10 @@ public class LightShow extends JavaPlugin {
 
         /* World specific */
         this.proximitySensor = new ProximitySensor(showSettings);
-        this.packetHandler = new PacketHandler(this, proximitySensor, showSettings);
+        this.packetHandler = new PacketHandler(this, proximitySensor);
         this.proximitySensor.setPacketHandler(packetHandler);
         this.songManager = new SongManager(configHandler, showSettings, packetHandler);
-        this.stageManager = new StageManager(this, configHandler, showSettings, songManager, packetHandler);
+        this.stageManager = new StageManager(this, configHandler, showSettings, songManager, packetHandler, proximitySensor);
 
         /* Register Fixtures */
         this.stageManager.registerFixture("Command", CommandFixture.class);
@@ -50,7 +54,7 @@ public class LightShow extends JavaPlugin {
         this.stageManager.registerFixture("BlockChanger", BlockChangerFixture.class);
         this.stageManager.registerFixture("BlockUpdater", BlockUpdaterFixture.class);
         this.stageManager.registerFixture("Crystal", CrystalFixture.class);
-        this.stageManager.registerFixture("FireworkLauncher", FireworkFixture.class);
+        this.stageManager.registerFixture("FireworkLaunch", FireworkFixture.class);
         this.stageManager.registerFixture("FogMachine", FogMachineFixture.class);
         this.stageManager.registerFixture("LogoDisplay", LogoFixture.class);
         this.stageManager.registerFixture("MovingHead", MovingHeadFixture.class);
@@ -68,6 +72,23 @@ public class LightShow extends JavaPlugin {
         pluginCommand.setExecutor(showExecutor);
         pluginCommand.setTabCompleter(showExecutor);
 
+        /* New: initialize sign listener */
+        Bukkit.getPluginManager().registerEvents(new FixtureSignListener(stageManager), this);
+
+        File signFile = new File("plugins/Light-Show/DmxEntries/signs.json");
+        if (!signFile.exists()) {
+            try {
+                signFile.getParentFile().mkdirs(); // Create parent dirs if needed
+                signFile.createNewFile(); // Create the empty file
+                try (FileWriter writer = new FileWriter(signFile, StandardCharsets.UTF_8)) {
+                    writer.write("[]"); // Write empty array to initialize it
+                }
+            } catch (IOException e) {
+                getLogger().severe("Failed to create signs.json: " + e.getMessage());
+            }
+        }
+
+
     }
 
     /**
@@ -82,6 +103,9 @@ public class LightShow extends JavaPlugin {
         if(this.packetHandler != null) {
             this.packetHandler.resetEverything();
         }
+
+
+
     }
 
     /**

@@ -2,35 +2,46 @@ package net.exenco.lightshow.show.stage.fixtures;
 
 import com.google.gson.JsonObject;
 import net.exenco.lightshow.show.stage.StageManager;
+import net.exenco.lightshow.util.ProximitySensor;
 import net.exenco.lightshow.util.ConfigHandler;
-import net.exenco.lightshow.util.PacketHandler;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
+
+
 
 import java.util.*;
 
 public class BeaconFixture extends ShowFixture {
 
-    private final PacketHandler packetHandler;
     private boolean enabled;
     private int red;
     private int green;
     private int blue;
-    private final Vector[] blockLocations;
+    private final Location[]  blockLocations;
     private final BlockData disabledBlockData;
-    private final static BlockData airData = Material.AIR.createBlockData();
-    public BeaconFixture(JsonObject jsonObject, StageManager stageManager) {
-        super(jsonObject, stageManager);
-        this.packetHandler = stageManager.getPacketHandler();
+    private static final BlockData airData = Material.AIR.createBlockData();
 
-        Material disabledBlockMaterial = jsonObject.has("OffBlock") ? ConfigHandler.getMaterialFromName(jsonObject.get("OffBlock").getAsString()) : Material.BLACK_WOOL;
-        this.disabledBlockData = disabledBlockMaterial.createBlockData();
+    private final ProximitySensor proximity;
+    private final World world;
+    
+    public BeaconFixture(JsonObject jsonObject, StageManager stageManager, World world) {
+        super(jsonObject, stageManager);
+
+        this.proximity = stageManager.getProximitySensor();
+        this.world = world;
+
+
+        Material offMat = jsonObject.has("OffBlock")
+                ? ConfigHandler.getMaterialFromName(jsonObject.get("OffBlock").getAsString())
+                : Material.BLACK_WOOL;
+        this.disabledBlockData = offMat.createBlockData();
         int count = jsonObject.has("ColourBlocks") ? jsonObject.get("ColourBlocks").getAsInt() : 7;
 
-        this.blockLocations = new Vector[count];
-        for(int i = 0; i < count; i++) {
-            this.blockLocations[i] = location.clone().add(new Vector(0, i, 0));
+        this.blockLocations = new Location[count];
+        for (int i = 0; i < count; i++) {
+            this.blockLocations[i] = location.clone().add(0, i, 0);
         }
     }
 
@@ -41,54 +52,53 @@ public class BeaconFixture extends ShowFixture {
 
     @Override
     public void applyState(int[] data) {
-        boolean enabled = data[0] > 0;
-        int red = data[1];
-        int green = data[2];
-        int blue = data[3];
+        boolean wantOn   = data[0] > 0;
+        int     newRed   = data[1];
+        int     newGreen = data[2];
+        int     newBlue  = data[3];
 
-        boolean updateColours = false;
+        boolean coloursChanged = (newRed != red || newGreen != green || newBlue != blue);
+        this.red   = newRed;
+        this.green = newGreen;
+        this.blue  = newBlue;
 
-        if(enabled && !this.enabled) {
-            this.enabled = true;
-            updateColours = true;
-            packetHandler.sendBlockChange(location, airData);
-        } else if(!enabled && this.enabled) {
-            this.enabled = false;
-            packetHandler.sendBlockChange(location, disabledBlockData);
+        // toggle master on/off
+        if (wantOn && !enabled) {
+            enabled = true;
+            sendChange(location, airData);
+        } else if (!wantOn && enabled) {
+            enabled = false;
+            sendChange(location, disabledBlockData);
         }
+        if (!enabled) return;
 
-        if(!this.enabled)
-            return;
-
-        if(red != this.red || green != this.green || blue != this.blue) {
-            this.red = red;
-            this.green = green;
-            this.blue = blue;
-            updateColours = true;
-        }
-
-        if(updateColours)
+        // if either just turned on, or colour shifted, rebuild the glass column
+        if (coloursChanged) {
             updateGlassList();
+        }
+    }
+
+    private void sendChange(Location v, BlockData bd) {
+        Location loc = v.toLocation(world);
+        for (Player p : proximity.getPlayerList()) {
+            p.sendBlockChange(loc, bd);
+        }
     }
 
     private void updateGlassList() {
-        int length = blockLocations.length;
-        if(length >= 1) {
-            HashMap<Vector, BlockData> dataList = new HashMap<>();
+        Map<Location, BlockData> map = new HashMap<>();
 
-            EnumColour currentColour = getClosestColour(red, green, blue, -1, -1, -1);
-            dataList.put(blockLocations[0], currentColour.getBlockData());
+        // first picks closest to white
+        EnumColour last = getClosest(red, green, blue, -1, -1, -1);
+        map.put(blockLocations[0], last.blockData);
 
-            if(length > 1) {
-                for(int i = 1; i < length; i++) {
-                    currentColour = getClosestColour(red, green, blue, currentColour.getRed(), currentColour.getGreen(), currentColour.getBlue());
-                    dataList.put(blockLocations[i], currentColour.getBlockData());
-                }
-            }
-            for(Map.Entry<Vector, BlockData> entry : dataList.entrySet()) {
-                packetHandler.sendBlockChange(entry.getKey(), entry.getValue());
-            }
+        // subsequent pick closest to previous
+        for (int i = 1; i < blockLocations.length; i++) {
+            last = getClosest(red, green, blue, last.red, last.green, last.blue);
+            map.put(blockLocations[i], last.blockData);
         }
+
+        map.forEach(this::sendChange);
     }
 
     private EnumColour getClosestColour(int red, int green, int blue, int fromRed, int fromGreen, int fromBlue) {
@@ -109,6 +119,30 @@ public class BeaconFixture extends ShowFixture {
             }
         }
         return bestEnumColor;
+    }
+
+
+
+    private EnumColour getClosest(int tr, int tg, int tb, int pr, int pg, int pb) {
+        Vector target = new Vector(tr, tg, tb);
+        Vector base   = (pr<0)
+                ? new Vector(255,255,255)
+                : new Vector(pr, pg, pb);
+
+        double bestDist = base.distance(target);
+        EnumColour best = null;
+
+        for (EnumColour c : EnumColour.values()) {
+            Vector candidate = (pr<0)
+                    ? new Vector(c.red, c.green, c.blue)
+                    : new Vector((c.red+pr)/2.0, (c.green+pg)/2.0, (c.blue+pb)/2.0);
+            double d = candidate.distance(target);
+            if (best == null || d < bestDist) {
+                bestDist = d;
+                best     = c;
+            }
+        }
+        return best;
     }
 
     private enum EnumColour {

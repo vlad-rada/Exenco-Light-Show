@@ -1,24 +1,13 @@
 package net.exenco.lightshow.util;
 
 import com.google.gson.*;
-import com.mojang.serialization.DataResult;
 import net.exenco.lightshow.LightShow;
-import net.minecraft.core.Holder;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.TagParser;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.ItemStack;
-
-//new
-import net.minecraft.world.item.Item;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.core.component.DataComponentPatch;
-
-
-import net.minecraft.world.item.Items;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import java.io.File;
@@ -78,65 +67,46 @@ public class ConfigHandler {
         return null;
     }
 
-    public static Vector translateVector(JsonObject jsonObject) {
-        if(jsonObject == null)
-            return null;
-
-        double x = jsonObject.get("x").getAsDouble();
-        double y = jsonObject.get("y").getAsDouble();
-        double z = jsonObject.get("z").getAsDouble();
+    public static Vector translateVector(JsonObject json) {
+        if (json == null) return null;
+        double x = json.get("x").getAsDouble();
+        double y = json.get("y").getAsDouble();
+        double z = json.get("z").getAsDouble();
         return new Vector(x, y, z);
     }
 
-    public static Location translateLocation(JsonObject jsonObject) {
-        if(jsonObject == null)
-            return null;
-
-        World world = jsonObject.has("world") ? Bukkit.getWorld(jsonObject.get("world").getAsString()) : null;
-        double x = jsonObject.get("x").getAsDouble();
-        double y = jsonObject.get("y").getAsDouble();
-        double z = jsonObject.get("z").getAsDouble();
-        float yaw = jsonObject.has("yaw") ? jsonObject.get("yaw").getAsFloat() : 0.0F;
-        float pitch = jsonObject.has("pitch") ? jsonObject.get("pitch").getAsFloat() : 0.0F;
+    public static Location translateLocation(JsonObject json) {
+        if (json == null) return null;
+        World world = json.has("world")
+                ? Bukkit.getWorld(json.get("world").getAsString())
+                : Bukkit.getWorlds().get(0);
+        double x = json.get("x").getAsDouble();
+        double y = json.get("y").getAsDouble();
+        double z = json.get("z").getAsDouble();
+        float yaw   = json.has("yaw")   ? json.get("yaw").getAsFloat()   : 0f;
+        float pitch = json.has("pitch") ? json.get("pitch").getAsFloat() : 0f;
         return new Location(world, x, y, z, yaw, pitch);
     }
 
-    public static Color translateColor(JsonObject jsonObject) {
-        int red = jsonObject.get("Red").getAsInt();
-        int green = jsonObject.get("Green").getAsInt();
-        int blue = jsonObject.get("Blue").getAsInt();
-        return Color.fromRGB(red, green, blue);
+    public static Color translateColor(JsonObject json) {
+        int r = json.get("Red").getAsInt();
+        int g = json.get("Green").getAsInt();
+        int b = json.get("Blue").getAsInt();
+        return Color.fromRGB(r, g, b);
     }
 
 
-    
-    //updated june 22 2025 for 1.21.6
-    public static ItemStack getItemStackFromJsonObject(JsonObject jsonObject) {
-        String itemId = jsonObject.get("Item").getAsString();
-        int count = jsonObject.has("Count") ? jsonObject.get("Count").getAsInt() : 1;
-        String nbt = jsonObject.has("Nbt") ? jsonObject.get("Nbt").getAsString() : "{}";
+    public static ItemStack getItemStackFromJsonObject(JsonObject json) {
+        String id    = json.get("Item").getAsString();
+        int    count = json.has("Count") ? json.get("Count").getAsInt() : 1;
 
-        try {
-            ResourceLocation itemKey = ResourceLocation.parse(itemId.toLowerCase());
-            Optional<Item> opt = BuiltInRegistries.ITEM.getOptional(itemKey);
-            if (opt.isEmpty() || opt.get() == Items.AIR) {
-                throw new IllegalArgumentException("Unknown or AIR item: " + itemId);
-            }
-            ItemStack stack = new ItemStack(opt.get(), count);
-
-            CompoundTag itemNbt = TagParser.parseCompoundFully(nbt);
-            if (!itemNbt.isEmpty()) {
-                DataResult<DataComponentPatch> result = DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, itemNbt);
-                DataComponentPatch patch = result.result().orElseThrow(() ->
-                        new RuntimeException("Failed to parse patch: " + result.error().map(DataResult.Error::message).orElse("Unknown")));
-                stack.applyComponents(patch);
-            }
-            return stack;
-        } catch (CommandSyntaxException e) {
-            throw new RuntimeException("Cannot parse item " + count + "x " + itemId + " with NBT: " + nbt, e);
+        Material mat = Material.matchMaterial(id.toUpperCase());
+        if (mat == null) {
+            throw new IllegalArgumentException("Invalid material: " + id);
         }
-    }
 
+        return new ItemStack(mat, count);
+    }
 
 
 
@@ -149,7 +119,7 @@ public class ConfigHandler {
         // nbtTagCompound.putString("tag", "{}");
         // return CraftItemStack.asBukkitCopy(ItemStack.of(nbtTagCompound)).getType();
 
-        Material mat = Material.matchMaterial(name.toLowerCase());
+        Material mat = Material.matchMaterial(name.toUpperCase());
         if (mat == null) {
             throw new IllegalArgumentException("Invalid material name: " + name);
         }
