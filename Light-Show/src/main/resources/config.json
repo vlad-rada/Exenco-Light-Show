@@ -7,7 +7,7 @@
       "world": "world",
       "x": 0.5,
       "y": 70,
-      "z": 0.5
+      "z": 0.0
     },
     "Radius": 200.0
   },
@@ -15,16 +15,16 @@
     "NoPermission": "§cYou have no permission to execute this command.",
     "NotAllowed": "§cYou are not allowed to execute this command.",
     "Reload": "§aReloading successful.",
-    "ToggleOn": "§7You will §anow §7see the light-show.",
-    "ToggleOff": "§7You will §cno longer §7see the light-show."
+    "ToggleOn": "§7You will §anow §7see the light-show",
+    "ToggleOff": "§7You will §cno longer §7see the light-show"
   },
-  "ArtNet": {
+    "ArtNet": {
     "Redirector": {
-      "Enabled": true,
+      "Enabled": false,
       "Key": "change me!"
     },
     "Address": {
-      "Ip": "192.168.1.2",
+      "Ip": "127.0.0.1",
       "Port": 6454
     },
     "Timeout": 500,
@@ -36,7 +36,11 @@
     "NotConnected": "§7Art-Net §cnot connected§7!"
   },
   "DmxEntries": [
-
+    {
+      "Universe": 1,
+      "Filename": "signs",
+      "Offset": 0
+    }
   ],
   "EffectSettings": {
     "SongSelector": {
