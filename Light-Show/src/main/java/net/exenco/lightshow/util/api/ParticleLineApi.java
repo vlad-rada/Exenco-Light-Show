@@ -35,24 +35,15 @@ public class ParticleLineApi {
 
         // spawn until we've gone maxDistance from the start point
         while (iterator.distance(origin) < maxDistance) {
-            if (data != null) {
                 world.spawnParticle(
                         particle,
                         iterator.getX(), iterator.getY(), iterator.getZ(),
                         1,            // count
                         offsetX, offsetY, offsetZ,
                         time,
-                        data
+                        data, //is allowed to be null!
+                        true //force:true
                 );
-            } else {
-                world.spawnParticle(
-                        particle,
-                        iterator.getX(), iterator.getY(), iterator.getZ(),
-                        1,            // count
-                        offsetX, offsetY, offsetZ,
-                        time
-                );
-            }
             iterator.add(direction);
         }
     }

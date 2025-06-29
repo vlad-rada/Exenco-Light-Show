@@ -60,25 +60,16 @@ public class ParticleFlareFixture extends ShowFixture {
             //center on block
             Location center = location.clone().add(0.5, 0, 0.5);
 
-
-            if (particleData != null) {
-                world.spawnParticle(
+             world.spawnParticle(
                         particle,
                         center,
                         count,
                         offsetX, offsetY, offsetZ,
                         time,
-                        particleData
+                        particleData, //is allowed to be null!
+                        true //force: try to force despite player distance
                 );
-            } else {
-                world.spawnParticle(
-                        particle,
-                        center,
-                        count,
-                        offsetX, offsetY, offsetZ,
-                        time
-                );
-            }
+
         }
     }
 }
