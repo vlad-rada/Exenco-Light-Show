@@ -1,5 +1,5 @@
 
-See an early demo of the MC 1.21.6 vladra fork of this plugin here: https://packaged-media.redd.it/fb0hlsvhud9f1/pb/m2-res_720p.mp4?m=DASHPlaylist.mpd&v=1&e=1751076000&s=60e5e05186eabeeac7f3b0740249521019ae5346 
+See an early demo of the MC 1.21.6 vladra fork of this plugin here: https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExenliNnFlYTM2dmZrM2xmNHRmMGltNHY5NHdveDc1Nmc5dWxoOXl1cyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/PpAzbzKY3dgZObYl7Q/giphy.gif
 
 
 The following is the old README from Exenco's original plugin, it will be updated as time goes on. For now, if you're looking to get started, please see my updated documentation here: https://github.com/vladra/Exenco-Light-Show/wiki 
